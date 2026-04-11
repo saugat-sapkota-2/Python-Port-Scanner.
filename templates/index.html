@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Port Scanner</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="app-shell">
+        <header class="hero">
+            <div class="hero-head">
+                <div class="hero-copy">
+                <h1>Python Port Scanner</h1>
+                <p>Fast TCP scanning with live progress, banner grabbing, and local JSON reports.</p>
+                </div>
+
+                <section class="developer-spotlight" aria-label="Developer information">
+                    <div class="developer-badge">Featured Developer</div>
+                    <p class="developer-name">Developer : reinF-(Saugat Sapkota)</p>
+                    <p class="developer-web">
+                        Web :
+                        <a href="https://saugatsapkota1.com.np" target="_blank" rel="noopener noreferrer">
+                            saugatsapkota1.com.np
+                        </a>
+                    </p>
+                </section>
+            </div>
+        </header>
+
+        <section class="summary-grid">
+            <article class="card">
+                <h2>Total Ports Scanned</h2>
+                <p id="totalScanned">0</p>
+            </article>
+            <article class="card">
+                <h2>Open Ports Found</h2>
+                <p id="openFound">0</p>
+            </article>
+            <article class="card">
+                <h2>Scan Duration</h2>
+                <p id="scanDuration">0s</p>
+            </article>
+            <article class="card">
+                <h2>OS Detected</h2>
+                <p id="osDetected">Not scanned yet</p>
+            </article>
+        </section>
+
+        <section class="panel">
+            <form id="scanForm" class="scan-form">
+                <label>
+                    Target IP or Hostname
+                    <input id="target" type="text" required placeholder="127.0.0.1 or localhost">
+                </label>
+                <label>
+                    Start Port
+                    <input id="startPort" type="number" min="1" max="65535" value="1" required>
+                </label>
+                <label>
+                    End Port
+                    <input id="endPort" type="number" min="1" max="65535" value="1024" required>
+                </label>
+                <label>
+                    Thread Count
+                    <div class="slider-wrap">
+                        <input id="threadCount" type="range" min="50" max="500" value="100">
+                        <span id="threadCountValue">100</span>
+                    </div>
+                </label>
+                <div class="action-row">
+                    <button id="startButton" type="submit">Start Scan</button>
+                    <button id="newScanButton" type="button" class="secondary">New Scan</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="progressSection" class="panel hidden">
+            <div class="progress-head">
+                <h3>Scan Progress</h3>
+                <p id="statusMessage">Waiting for scan...</p>
+            </div>
+            <div class="progress-track">
+                <div id="progressBar" class="progress-fill"></div>
+            </div>
+        </section>
+
+        <section id="resultsSection" class="panel hidden">
+            <div class="results-head">
+                <h3>Open Ports</h3>
+                <a id="downloadButton" class="secondary hidden" href="#">Download JSON Report</a>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Port</th>
+                            <th>Service</th>
+                            <th>Banner</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="errorSection" class="panel hidden error-panel">
+            <h3>Scan Error</h3>
+            <p id="errorMessage"></p>
+        </section>
+    </main>
+
+    <script>
+        const scanForm = document.getElementById("scanForm");
+        const threadCount = document.getElementById("threadCount");
+        const threadCountValue = document.getElementById("threadCountValue");
+        const progressSection = document.getElementById("progressSection");
+        const resultsSection = document.getElementById("resultsSection");
+        const errorSection = document.getElementById("errorSection");
+        const statusMessage = document.getElementById("statusMessage");
+        const progressBar = document.getElementById("progressBar");
+        const resultsBody = document.getElementById("resultsBody");
+        const downloadButton = document.getElementById("downloadButton");
+        const errorMessage = document.getElementById("errorMessage");
+        const startButton = document.getElementById("startButton");
+        const newScanButton = document.getElementById("newScanButton");
+
+        const totalScanned = document.getElementById("totalScanned");
+        const openFound = document.getElementById("openFound");
+        const scanDuration = document.getElementById("scanDuration");
+        const osDetected = document.getElementById("osDetected");
+
+        let pollTimer = null;
+
+        function setFormEnabled(enabled) {
+            const controls = scanForm.querySelectorAll("input, button");
+            controls.forEach((control) => {
+                if (control.id === "newScanButton") {
+                    control.disabled = false;
+                    return;
+                }
+                control.disabled = !enabled;
+            });
+        }
+
+        function safeText(value) {
+            return String(value ?? "").trim();
+        }
+
+        function clearResultsTable() {
+            resultsBody.innerHTML = "";
+        }
+
+        function updateThreadValue() {
+            threadCountValue.textContent = threadCount.value;
+        }
+
+        function clearPolling() {
+            if (pollTimer) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+        }
+
+        function resetUi() {
+            clearPolling();
+            progressBar.style.width = "0%";
+            statusMessage.textContent = "Waiting for scan...";
+            clearResultsTable();
+            progressSection.classList.add("hidden");
+            resultsSection.classList.add("hidden");
+            errorSection.classList.add("hidden");
+            downloadButton.classList.add("hidden");
+            downloadButton.href = "#";
+            startButton.disabled = false;
+            setFormEnabled(true);
+
+            totalScanned.textContent = "0";
+            openFound.textContent = "0";
+            scanDuration.textContent = "0s";
+            osDetected.textContent = "Not scanned yet";
+        }
+
+        function setError(message) {
+            errorMessage.textContent = message;
+            errorSection.classList.remove("hidden");
+            startButton.disabled = false;
+            setFormEnabled(true);
+        }
+
+        function renderResults(result) {
+            const ports = result.ports || [];
+            clearResultsTable();
+
+            if (!ports.length) {
+                const row = document.createElement("tr");
+                row.className = "empty-row";
+
+                const cell = document.createElement("td");
+                cell.colSpan = 4;
+                cell.textContent = "No open TCP ports found in the selected range.";
+
+                row.appendChild(cell);
+                resultsBody.appendChild(row);
+            }
+
+            ports.forEach((item) => {
+                const row = document.createElement("tr");
+
+                const portCell = document.createElement("td");
+                portCell.textContent = safeText(item.port);
+
+                const serviceCell = document.createElement("td");
+                serviceCell.textContent = safeText(item.service || "unassigned");
+
+                const bannerCell = document.createElement("td");
+                bannerCell.textContent = safeText(item.banner || "No banner");
+
+                const statusCell = document.createElement("td");
+                const badge = document.createElement("span");
+                badge.className = "badge";
+                badge.textContent = "open";
+                statusCell.appendChild(badge);
+
+                row.appendChild(portCell);
+                row.appendChild(serviceCell);
+                row.appendChild(bannerCell);
+                row.appendChild(statusCell);
+                resultsBody.appendChild(row);
+            });
+
+            const osName = safeText(result.os_info && result.os_info.name ? result.os_info.name : "Not detected");
+            const osAccuracy = Number(result.os_info && result.os_info.accuracy ? result.os_info.accuracy : 0);
+            const osLabel = osAccuracy > 0 ? `${osName} (${osAccuracy}%)` : osName;
+
+            totalScanned.textContent = String(result.total_ports_scanned || 0);
+            openFound.textContent = String(result.open_ports_found || 0);
+            scanDuration.textContent = `${result.scan_duration_seconds || 0}s`;
+            osDetected.textContent = osLabel;
+
+            resultsSection.classList.remove("hidden");
+        }
+
+        async function fetchStatus() {
+            try {
+                const response = await fetch("/status", { cache: "no-store" });
+                const data = await response.json();
+
+                if (data.status === "running") {
+                    progressSection.classList.remove("hidden");
+                    statusMessage.textContent = data.message || "Scanning...";
+                    progressBar.style.width = `${data.progress || 0}%`;
+                    startButton.disabled = true;
+                    setFormEnabled(false);
+                    return data;
+                }
+
+                if (data.status === "complete") {
+                    clearPolling();
+                    startButton.disabled = false;
+                    setFormEnabled(true);
+                    progressSection.classList.remove("hidden");
+                    statusMessage.textContent = data.message || "Scan complete";
+                    progressBar.style.width = `${data.progress || 100}%`;
+                    if (data.result) {
+                        renderResults(data.result);
+                    }
+                    if (data.report_filename) {
+                        downloadButton.href = `/download/${encodeURIComponent(data.report_filename)}`;
+                        downloadButton.classList.remove("hidden");
+                    }
+                    return data;
+                }
+
+                if (data.status === "error") {
+                    clearPolling();
+                    setError(data.error || data.message || "Scan error occurred.");
+                    return data;
+                }
+
+                startButton.disabled = false;
+                setFormEnabled(true);
+                return data;
+            } catch (error) {
+                clearPolling();
+                setError(`Could not poll status: ${error}`);
+                return null;
+            }
+        }
+
+        function validatePayload(payload) {
+            const target = safeText(payload.target);
+            const startPort = Number(payload.start_port);
+            const endPort = Number(payload.end_port);
+            const threadCountValue = Number(payload.thread_count);
+
+            if (!target) {
+                return "Target IP or hostname is required.";
+            }
+            if (!Number.isInteger(startPort) || startPort < 1 || startPort > 65535) {
+                return "Start Port must be an integer between 1 and 65535.";
+            }
+            if (!Number.isInteger(endPort) || endPort < 1 || endPort > 65535) {
+                return "End Port must be an integer between 1 and 65535.";
+            }
+            if (startPort > endPort) {
+                return "Start Port must be less than or equal to End Port.";
+            }
+            if (!Number.isInteger(threadCountValue) || threadCountValue < 50 || threadCountValue > 500) {
+                return "Thread Count must be between 50 and 500.";
+            }
+
+            return "";
+        }
+
+        async function startScan(event) {
+            event.preventDefault();
+            errorSection.classList.add("hidden");
+            resultsSection.classList.add("hidden");
+            progressSection.classList.remove("hidden");
+            startButton.disabled = true;
+            setFormEnabled(false);
+            statusMessage.textContent = "Submitting scan request...";
+
+            const payload = {
+                target: document.getElementById("target").value.trim(),
+                start_port: Number(document.getElementById("startPort").value),
+                end_port: Number(document.getElementById("endPort").value),
+                thread_count: Number(threadCount.value),
+            };
+
+            const validationError = validatePayload(payload);
+            if (validationError) {
+                setError(validationError);
+                progressSection.classList.add("hidden");
+                return;
+            }
+
+            try {
+                const response = await fetch("/scan", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    if (response.status === 409) {
+                        statusMessage.textContent = "A scan is already running. Syncing live status...";
+                        clearPolling();
+                        pollTimer = setInterval(fetchStatus, 1000);
+                        fetchStatus();
+                        return;
+                    }
+                    throw new Error(data.error || "Unable to start scan.");
+                }
+
+                statusMessage.textContent = data.message || "Scan started.";
+                progressBar.style.width = "1%";
+
+                clearPolling();
+                pollTimer = setInterval(fetchStatus, 1000);
+                fetchStatus();
+            } catch (error) {
+                setError(String(error));
+                setFormEnabled(true);
+            }
+        }
+
+        threadCount.addEventListener("input", updateThreadValue);
+        scanForm.addEventListener("submit", startScan);
+        newScanButton.addEventListener("click", resetUi);
+
+        async function initializeUi() {
+            updateThreadValue();
+            resetUi();
+            try {
+                const response = await fetch("/status", { cache: "no-store" });
+                const currentState = await response.json();
+                if (currentState && currentState.status === "running") {
+                    clearPolling();
+                    pollTimer = setInterval(fetchStatus, 1000);
+                    fetchStatus();
+                } else {
+                    setFormEnabled(true);
+                }
+            } catch (error) {
+                setError(`Could not read current status: ${error}`);
+            }
+        }
+
+        initializeUi();
+    </script>
+</body>
+</html>
