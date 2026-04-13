@@ -1,6 +1,7 @@
 <p align="center">
-   <img src="image.png" alt="Port Scanner UI Proof 1" width="49%" />
-   <img src="image-2.png" alt="Port Scanner UI Proof 2" width="49%" />
+   <img src="preview_images/image.png" alt="Port Scanner UI Proof 1" width="32%" />
+   <img src="preview_images/image-2.png" alt="Port Scanner UI Proof 2" width="32%" />
+   <img src="preview_images/kalipriv.png" alt="Kali Privileged Run Proof" width="32%" />
 </p>
 
 # Python Port Scanner (Web + Advanced TUI)
