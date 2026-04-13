@@ -51,7 +51,7 @@ class PortScannerTUI(App[None]):
     CSS = """
     Screen {
         layout: vertical;
-        background: radial-gradient(40% 10%, #173f5f 0%, #102337 45%, #070b12 100%);
+        background: #070b12;
         color: #f3f8ff;
     }
 
@@ -61,7 +61,7 @@ class PortScannerTUI(App[None]):
         content-align: center middle;
         text-style: bold;
         color: #ffe066;
-        background: linear-gradient(90deg, #0f3460, #16537e 40%, #0f3460 100%);
+        background: #144066;
         border-bottom: heavy #4ecdc4;
     }
 
@@ -73,7 +73,7 @@ class PortScannerTUI(App[None]):
     #left_panel, #right_panel {
         height: 1fr;
         border: round #4ecdc4;
-        background: #0f1a2a 90%;
+        background: #0f1a2a;
         padding: 1;
         margin: 1 1 1 0;
     }
