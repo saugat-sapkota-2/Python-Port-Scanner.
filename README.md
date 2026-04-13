@@ -1,65 +1,97 @@
 <p align="center">
-  <img src="image.png" alt="Port Scanner UI Proof 1" width="49%" />
-  <img src="image-2.png" alt="Port Scanner UI Proof 2" width="49%" />
+   <img src="image.png" alt="Port Scanner UI Proof 1" width="49%" />
+   <img src="image-2.png" alt="Port Scanner UI Proof 2" width="49%" />
 </p>
 
-# Python Port Scanner (Flask GUI)
+# Python Port Scanner (Web + Advanced TUI)
 
-A Windows-ready Python TCP port scanner with a Flask web interface, live scan progress, banner grabbing, optional Nmap OS fingerprinting, and downloadable JSON reports.
+Python TCP port scanner with:
 
-## 1) Prerequisites (Windows)
+- Flask web UI
+- Advanced terminal UI (Textual TUI)
+- Live progress updates
+- Banner grabbing
+- Nmap-based OS fingerprinting (optional)
+- JSON report export
 
-1. Install Python 3.10 or newer from https://www.python.org/downloads/windows/
-2. Enable Add python.exe to PATH during installation.
-3. Verify Python:
-   - python --version
+Developer : reinF(Saugat Sapkota)
 
-## 2) Install Nmap (for OS detection)
+## 1) Install dependencies
 
-1. Download Nmap from https://nmap.org/download.html
-2. Complete the Windows installer.
-3. Add Nmap directory to PATH if required (commonly C:\Program Files (x86)\Nmap).
-4. Verify installation:
-   - nmap --version
+### Kali Linux (recommended for terminal usage)
 
-If Nmap is unavailable, the scanner still runs and OS detection will report Nmap not available.
+```bash
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip nmap
+```
 
-## 3) Install Python dependencies
+### Windows
 
-From the folder containing app.py:
+1. Install Python 3.10+ from https://www.python.org/downloads/windows/
+2. Install Nmap from https://nmap.org/download.html
+3. Ensure both Python and Nmap are available in PATH.
 
-```powershell
+## 2) Create virtual environment and install Python packages
+
+From the folder containing `app.py` and `tui.py`:
+
+### Kali Linux
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## 4) Run the app
+### Windows PowerShell
 
 ```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+## 3) Run the Advanced TUI (Terminal UI)
+
+### Kali Linux
+
+```bash
+source .venv/bin/activate
+python3 tui.py
+```
+
+If OS fingerprinting needs elevated privileges on your Kali setup, run:
+
+```bash
+sudo .venv/bin/python tui.py
+```
+
+### Windows
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python tui.py
+```
+
+## 4) Run the Flask web interface
+
+```bash
 python app.py
 ```
 
-Then open:
-
-- http://localhost:5000
+Then open: `http://localhost:5000`
 
 Flask runtime configuration:
 
-- host: 0.0.0.0
-- port: 5000
-- debug: False
-- threaded: True
+- host: `0.0.0.0`
+- port: `5000`
+- debug: `False`
+- threaded: `True`
 
-## 5) Using the scanner
+## 5) Output reports
 
-1. Enter target IP or hostname.
-2. Choose start/end ports and thread count.
-3. Click Start Scan.
-4. Track progress in real time.
-5. Review open ports, service names, banners, and OS detection.
-6. Download the generated JSON report.
-
-Reports are written to the reports folder.
+Generated scan reports are saved in the `reports/` folder as JSON files.
 
 ## Legal notice
 
-Scanning external systems without explicit permission may be illegal. Use this tool only on systems you own or are authorized to test.
+Scan only systems you own or are explicitly authorized to test.
